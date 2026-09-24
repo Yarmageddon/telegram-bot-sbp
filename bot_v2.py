@@ -33,8 +33,10 @@ from keyboards_v2 import (
     main_menu_v2_keyboard, subscription_menu_keyboard, trial_keyboard,
     documents_keyboard, ocr_keyboard, review_rating_keyboard,
     review_category_keyboard, account_keyboard, ai_assistant_keyboard,
-    back_to_menu_keyboard
+    back_to_menu_keyboard, earthworks_menu_keyboard, earthworks_goals_keyboard,
+    npa_qa_keyboard
 )
+from earthworks import get_goals_by_type, search_npa_answer, format_npa_answer
 from models_v2 import (
     SubscriptionPlan, Trial, Review, NewsPost, Document,
     DocumentTemplate, PersonalStats
@@ -99,6 +101,17 @@ class DocumentStates(StatesGroup):
 class NewsStates(StatesGroup):
     waiting_for_title = State()
     waiting_for_content = State()
+
+
+class EarthworksStates(StatesGroup):
+    waiting_for_work_type = State()
+    waiting_for_goal = State()
+    waiting_for_details = State()
+    waiting_for_confirmation = State()
+
+
+class NPAQAStates(StatesGroup):
+    waiting_for_question = State()
 
 
 # ============= БАЗОВЫЕ КОМАНДЫ =============
@@ -758,6 +771,303 @@ async def process_broadcast(callback_query: CallbackQuery):
         f"❌ Ошибок: {failed}"
     )
     await callback_query.answer()
+
+
+# ============= ЗЕМЛЯНЫЕ РАБОТЫ =============
+
+@dp.callback_query(F.data == "menu_earthworks")
+async def menu_earthworks(callback_query: CallbackQuery, state: FSMContext):
+    """Меню земляных работ"""
+    await state.clear()
+    await state.set_state(EarthworksStates.waiting_for_work_type)
+    
+    text = (
+        "🏗 <b>Земляные работы</b>\n\n"
+        "Выберите тип услуги:\n\n"
+        "📋 <b>Ордер</b> - оформление ордера на земляные работы\n"
+        "📢 <b>Плановое уведомление МПГУ</b> - уведомление в МПГУ\n"
+        "📡 <b>Плановое уведомление ИАС УГД</b> - уведомление в ИАС УГД\n"
+        "🚨 <b>Аварийное уведомление</b> - уведомление об аварийных работах"
+    )
+    
+    await callback_query.message.edit_text(
+        text,
+        parse_mode="HTML",
+        reply_markup=earthworks_menu_keyboard()
+    )
+    await callback_query.answer()
+
+
+@dp.callback_query(F.data.startswith("earthworks_"))
+async def process_work_type(callback_query: CallbackQuery, state: FSMContext):
+    """Обработка выбора типа работы"""
+    work_type = callback_query.data.replace("earthworks_", "")
+    await state.update_data(work_type=work_type)
+    
+    if work_type == "emergency":
+        # Для аварийного уведомления не нужен выбор цели
+        await state.set_state(EarthworksStates.waiting_for_details)
+        text = (
+            "🚨 <b>Аварийное уведомление</b>\n\n"
+            "Опишите детали аварийной ситуации:\n"
+            "• Адрес проведения работ\n"
+            "• Характер аварии\n"
+            "• Сроки начала и окончания работ\n"
+            "• Контактная информация"
+        )
+        await callback_query.message.edit_text(
+            text,
+            parse_mode="HTML",
+            reply_markup=back_to_menu_keyboard()
+        )
+    else:
+        # Для остальных типов нужен выбор цели
+        await state.set_state(EarthworksStates.waiting_for_goal)
+        goals = get_goals_by_type(work_type)
+        
+        work_type_names = {
+            "order": "📋 Ордер",
+            "mpgu_planned": "📢 Плановое уведомление МПГУ",
+            "iasugd_planned": "📡 Плановое уведомление ИАС УГД"
+        }
+        
+        text = (
+            f"{work_type_names.get(work_type, 'Работа')}\n\n"
+            f"Выберите цель проведения работ:\n\n"
+            f"📚 Основание: НПА Москвы"
+        )
+        
+        await callback_query.message.edit_text(
+            text,
+            parse_mode="HTML",
+            reply_markup=earthworks_goals_keyboard(work_type)
+        )
+    
+    await callback_query.answer()
+
+
+@dp.callback_query(F.data.startswith("goal_"))
+async def process_goal_selection(callback_query: CallbackQuery, state: FSMContext):
+    """Обработка выбора цели"""
+    parts = callback_query.data.split("_", 2)
+    if len(parts) != 3:
+        await callback_query.answer("❌ Ошибка выбора цели", show_alert=True)
+        return
+    
+    work_type = parts[1]
+    goal_key = parts[2]
+    
+    goals = get_goals_by_type(work_type)
+    goal_text = goals.get(goal_key, "Неизвестная цель")
+    
+    await state.update_data(goal_key=goal_key, goal_text=goal_text)
+    await state.set_state(EarthworksStates.waiting_for_details)
+    
+    text = (
+        f"✅ Выбрана цель: {goal_text}\n\n"
+        f"Опишите детали заявки:\n"
+        f"• Адрес проведения работ\n"
+        f"• Сроки начала и окончания работ\n"
+        f"• Объем работ\n"
+        f"• Контактная информация\n"
+        f"• Дополнительные сведения"
+    )
+    
+    await callback_query.message.edit_text(
+        text,
+        parse_mode="HTML",
+        reply_markup=back_to_menu_keyboard()
+    )
+    await callback_query.answer()
+
+
+@dp.message(EarthworksStates.waiting_for_details)
+async def process_work_details(message: Message, state: FSMContext):
+    """Обработка деталей заявки"""
+    data = await state.get_data()
+    work_type = data.get("work_type")
+    goal_text = data.get("goal_text", "Не указана")
+    details = message.text
+    
+    await state.update_data(details=details)
+    await state.set_state(EarthworksStates.waiting_for_confirmation)
+    
+    work_type_names = {
+        "order": "📋 Ордер",
+        "mpgu_planned": "📢 Плановое уведомление МПГУ",
+        "iasugd_planned": "📡 Плановое уведомление ИАС УГД",
+        "emergency": "🚨 Аварийное уведомление"
+    }
+    
+    text = (
+        f"📝 <b>Проверьте данные заявки</b>\n\n"
+        f"<b>Тип работы:</b> {work_type_names.get(work_type, 'Неизвестно')}\n"
+        f"<b>Цель:</b> {goal_text}\n"
+        f"<b>Детали:</b>\n{details}\n\n"
+        f"Подтвердить отправку заявки?"
+    )
+    
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(text="✅ Подтвердить", callback_data="confirm_earthworks"),
+            InlineKeyboardButton(text="❌ Отмена", callback_data="cancel_earthworks")
+        ]
+    ])
+    
+    await message.answer(
+        text,
+        parse_mode="HTML",
+        reply_markup=keyboard
+    )
+
+
+@dp.callback_query(F.data == "confirm_earthworks")
+async def confirm_earthworks(callback_query: CallbackQuery, state: FSMContext):
+    """Подтверждение заявки"""
+    data = await state.get_data()
+    
+    # Здесь можно добавить сохранение заявки в базу данных
+    # и отправку уведомления администраторам
+    
+    await state.clear()
+    
+    text = (
+        "✅ <b>Заявка отправлена!</b>\n\n"
+        "Ваша заявка принята в обработку.\n"
+        "Мы свяжемся с вами в ближайшее время.\n\n"
+        "📞 Если у вас есть срочные вопросы, используйте /support"
+    )
+    
+    await callback_query.message.edit_text(
+        text,
+        parse_mode="HTML",
+        reply_markup=back_to_menu_keyboard()
+    )
+    await callback_query.answer()
+
+
+@dp.callback_query(F.data == "cancel_earthworks")
+async def cancel_earthworks(callback_query: CallbackQuery, state: FSMContext):
+    """Отмена заявки"""
+    await state.clear()
+    await callback_query.message.edit_text(
+        "❌ Заявка отменена",
+        reply_markup=back_to_menu_keyboard()
+    )
+    await callback_query.answer()
+
+
+# ============= ВОПРОС-ОТВЕТ ПО НПА =============
+
+@dp.callback_query(F.data == "menu_npa_qa")
+async def menu_npa_qa(callback_query: CallbackQuery, state: FSMContext):
+    """Меню вопрос-ответ по НПА"""
+    await state.clear()
+    
+    text = (
+        "📚 <b>Вопрос-ответ по НПА</b>\n\n"
+        "Здесь вы можете получить ответы на вопросы по нормативно-правовым актам Москвы:\n\n"
+        "• 283-ПП - О проведении земляных работ в уведомительном порядке\n"
+        "• 284-ПП - Об утверждении порядка оформления ордеров\n"
+        "• 299-ПП - Правила проведения земляных работ\n"
+        "• 1112-ПП - Порядок уведомления о проведении аварийно-восстановительных работ\n\n"
+        "Выберите тему или задайте свой вопрос:"
+    )
+    
+    await callback_query.message.edit_text(
+        text,
+        parse_mode="HTML",
+        reply_markup=npa_qa_keyboard()
+    )
+    await callback_query.answer()
+
+
+@dp.callback_query(F.data.startswith("npa_q_"))
+async def process_npa_question(callback_query: CallbackQuery, state: FSMContext):
+    """Обработка вопросов по НПА"""
+    question_key = callback_query.data.replace("npa_q_", "")
+    
+    # Маппинг ключей на темы
+    topic_mapping = {
+        "order": "ордер",
+        "order_terms": "сроки ордер",
+        "mpgu": "уведомление мпгу",
+        "iasugd": "уведомление иас угд",
+        "emergency": "аварийные работы",
+        "restoration": "восстановление благоустройства"
+    }
+    
+    topic = topic_mapping.get(question_key, question_key)
+    answer = search_npa_answer(topic)
+    
+    if answer:
+        text = format_npa_answer(answer)
+    else:
+        text = "❓ Не удалось найти ответ на этот вопрос. Попробуйте переформулировать или обратитесь в поддержку."
+    
+    await callback_query.message.edit_text(
+        text,
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="🔙 Назад к вопросам", callback_data="menu_npa_qa")],
+            [InlineKeyboardButton(text="🏠 Главное меню", callback_data="back_to_menu")]
+        ])
+    )
+    await callback_query.answer()
+
+
+@dp.callback_query(F.data == "npa_q_custom")
+async def process_custom_npa_question(callback_query: CallbackQuery, state: FSMContext):
+    """Обработка пользовательского вопроса по НПА"""
+    await state.set_state(NPAQAStates.waiting_for_question)
+    
+    text = (
+        "❓ <b>Задайте вопрос по НПА</b>\n\n"
+        "Введите ваш вопрос по нормативно-правовым актам Москвы.\n\n"
+        "Примеры вопросов:\n"
+        "• Какие сроки оформления ордера?\n"
+        "• Что такое уведомление МПГУ?\n"
+        "• Как проводятся аварийные работы?\n"
+        "• Какие документы нужны для уведомления?"
+    )
+    
+    await callback_query.message.edit_text(
+        text,
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="❌ Отмена", callback_data="menu_npa_qa")]
+        ])
+    )
+    await callback_query.answer()
+
+
+@dp.message(NPAQAStates.waiting_for_question)
+async def process_npa_question_text(message: Message, state: FSMContext):
+    """Обработка текста вопроса по НПА"""
+    question = message.text
+    answer = search_npa_answer(question)
+    
+    if answer:
+        text = format_npa_answer(answer)
+    else:
+        text = (
+            "❓ Не удалось найти точный ответ на ваш вопрос в базе знаний НПА.\n\n"
+            "Рекомендуем:\n"
+            "• Переформулировать вопрос\n"
+            "• Использовать кнопки меню для выбора темы\n"
+            "• Обратиться в поддержку через /support"
+        )
+    
+    await message.answer(
+        text,
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="🔙 Задать другой вопрос", callback_data="npa_q_custom")],
+            [InlineKeyboardButton(text="📚 Меню вопросов", callback_data="menu_npa_qa")],
+            [InlineKeyboardButton(text="🏠 Главное меню", callback_data="back_to_menu")]
+        ])
+    )
+    await state.clear()
 
 
 # ============= НАВИГАЦИЯ =============

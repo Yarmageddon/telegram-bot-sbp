@@ -1,30 +1,17 @@
 """
-Конвертация документов и OCR (через easyocr)
+Конвертация документов и OCR
 """
 import os
 import uuid
 from pathlib import Path
+from datetime import datetime
 
-# Папка для документов
+# Создаем папку для документов
 DOCS_DIR = Path("/tmp/documents")
 DOCS_DIR.mkdir(exist_ok=True)
 
-# Глобальный объект OCR (создаётся один раз)
-_ocr_reader = None
 
-
-def _get_ocr_reader():
-    """Получить или создать OCR reader (ленивая инициализация)"""
-    global _ocr_reader
-    if _ocr_reader is None:
-        import easyocr
-        print("🔄 Инициализация OCR (может занять 30-60 сек при первом запуске)...")
-        _ocr_reader = easyocr.Reader(['ru', 'en'], gpu=False)
-        print("✅ OCR инициализирован")
-    return _ocr_reader
-
-
-def convert_pdf_to_text(pdf_path: str) -> tuple:
+def convert_pdf_to_text(pdf_path: str) -> tuple[bool, str, str]:
     """Конвертация PDF в текст"""
     try:
         import PyPDF2
@@ -46,7 +33,7 @@ def convert_pdf_to_text(pdf_path: str) -> tuple:
         return False, f"❌ Ошибка: {str(e)}", ""
 
 
-def convert_text_to_pdf(text: str, filename: str = None) -> tuple:
+def convert_text_to_pdf(text: str, filename: str = None) -> tuple[bool, str, str]:
     """Конвертация текста в PDF"""
     try:
         from reportlab.lib.pagesizes import A4
@@ -70,6 +57,7 @@ def convert_text_to_pdf(text: str, filename: str = None) -> tuple:
         c = canvas.Canvas(str(output_path), pagesize=A4)
         width, height = A4
         
+        # Добавляем текст
         text_object = c.beginText(40, height - 40)
         text_object.setFont(font_name, 11)
         
@@ -87,32 +75,25 @@ def convert_text_to_pdf(text: str, filename: str = None) -> tuple:
         return False, f"❌ Ошибка: {str(e)}", ""
 
 
-def ocr_from_image(image_path: str, lang: str = "ru,en") -> tuple:
-    """OCR - распознавание текста с изображения через easyocr"""
+def ocr_from_image(image_path: str, lang: str = "rus+eng") -> tuple[bool, str, str]:
+    """OCR - распознавание текста с изображения"""
     try:
+        import pytesseract
+        from PIL import Image
+        
         if not os.path.exists(image_path):
             return False, "❌ Файл не найден", ""
         
-        # Получаем reader (создаётся один раз)
-        reader = _get_ocr_reader()
-        
-        # Распознаём текст
-        result = reader.readtext(image_path)
-        
-        if not result:
-            return False, "❌ Текст не распознан. Попробуйте более чёткое изображение", ""
-        
-        # result - список кортежей: (координаты, текст, уверенность)
-        text_lines = [item[1] for item in result]
-        text = "\n".join(text_lines)
+        image = Image.open(image_path)
+        text = pytesseract.image_to_string(image, lang=lang)
         
         if not text.strip():
-            return False, "❌ Текст не распознан. Попробуйте более чёткое изображение", ""
+            return False, "❌ Текст не распознан. Попробуйте более четкое изображение", ""
         
         return True, "✅ Текст успешно распознан", text
     
     except ImportError as e:
-        return False, f"❌ Библиотека easyocr не установлена: {e}", ""
+        return False, f"❌ Не установлены библиотеки: {e}", ""
     except Exception as e:
         return False, f"❌ Ошибка OCR: {str(e)}", ""
 
@@ -133,7 +114,7 @@ def get_file_extension(file_name: str) -> str:
     return file_name.split('.')[-1].lower() if '.' in file_name else ""
 
 
-def convert_between_formats(input_path: str, target_format: str) -> tuple:
+def convert_between_formats(input_path: str, target_format: str) -> tuple[bool, str, str]:
     """Конвертация между форматами"""
     input_ext = get_file_extension(input_path)
     

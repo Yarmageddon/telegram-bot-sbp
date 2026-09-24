@@ -29,7 +29,7 @@ def create_promo_code(code: str, discount_percent: int, max_uses: int = 1,
         db.close()
 
 
-def validate_promo_code(code: str, user_id: int) -> tuple:
+def validate_promo_code(code: str, user_id: int) -> tuple[bool, str, PromoCode]:
     """Validate promo code"""
     db = SessionLocal()
     try:
@@ -39,8 +39,14 @@ def validate_promo_code(code: str, user_id: int) -> tuple:
             return False, "❌ Промокод не найден", None
         
         if not promo.is_valid:
-            return False, "❌ Промокод недействителен", None
+            if not promo.active:
+                return False, "❌ Промокод деактивирован", None
+            if promo.used_count >= promo.max_uses:
+                return False, "❌ Промокод уже использован максимальное количество раз", None
+            if promo.expires_at and datetime.now() > promo.expires_at:
+                return False, "❌ Срок действия промокода истек", None
         
+        # Проверяем, не использовал ли уже этот пользователь
         existing_usage = db.query(PromoCodeUsage).filter(
             PromoCodeUsage.promo_code_id == promo.id,
             PromoCodeUsage.user_id == user_id
@@ -50,27 +56,38 @@ def validate_promo_code(code: str, user_id: int) -> tuple:
             return False, "❌ Вы уже использовали этот промокод", None
         
         return True, "✅ Промокод действителен", promo
+    
     finally:
         db.close()
 
 
-def use_promo_code(code: str, user_id: int) -> tuple:
+def use_promo_code(code: str, user_id: int) -> tuple[bool, str]:
     """Use promo code"""
     db = SessionLocal()
     try:
         promo = db.query(PromoCode).filter(PromoCode.code == code.upper()).first()
+        
         if not promo or not promo.is_valid:
             return False, "Промокод недействителен"
         
-        usage = PromoCodeUsage(promo_code_id=promo.id, user_id=user_id)
+        # Создаем запись об использовании
+        usage = PromoCodeUsage(
+            promo_code_id=promo.id,
+            user_id=user_id
+        )
         db.add(usage)
+        
+        # Увеличиваем счетчик использований
         promo.used_count += 1
+        
         db.commit()
         
         return True, f"✅ Промокод применен! Скидка {promo.discount_percent}%"
+    
     except Exception as e:
         db.rollback()
-        return False, f"Ошибка: {str(e)}"
+        return False, f"Ошибка применения промокода: {str(e)}"
+    
     finally:
         db.close()
 
@@ -79,6 +96,7 @@ def get_all_promo_codes() -> list:
     """Get all promo codes"""
     db = SessionLocal()
     try:
-        return db.query(PromoCode).all()
+        promos = db.query(PromoCode).all()
+        return promos
     finally:
         db.close()
