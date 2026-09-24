@@ -2,7 +2,7 @@
 nixpacksVersion = "0.1.0"
 
 [phases.setup]
-nixPkgs = ["python312", "tesseract"]
+nixPkgs = ["python312"]
 
 [phases.install]
 cmds = ["python -m pip install --upgrade pip", "pip install -r requirements.txt"]
