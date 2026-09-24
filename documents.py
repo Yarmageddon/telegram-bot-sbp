@@ -4,14 +4,13 @@
 import os
 import uuid
 from pathlib import Path
-from datetime import datetime
 
-# Создаем папку для документов
+# Папка для документов
 DOCS_DIR = Path("/tmp/documents")
 DOCS_DIR.mkdir(exist_ok=True)
 
 
-def convert_pdf_to_text(pdf_path: str) -> tuple[bool, str, str]:
+def convert_pdf_to_text(pdf_path: str) -> tuple:
     """Конвертация PDF в текст"""
     try:
         import PyPDF2
@@ -33,33 +32,22 @@ def convert_pdf_to_text(pdf_path: str) -> tuple[bool, str, str]:
         return False, f"❌ Ошибка: {str(e)}", ""
 
 
-def convert_text_to_pdf(text: str, filename: str = None) -> tuple[bool, str, str]:
+def convert_text_to_pdf(text: str, filename: str = None) -> tuple:
     """Конвертация текста в PDF"""
     try:
         from reportlab.lib.pagesizes import A4
         from reportlab.pdfgen import canvas
-        from reportlab.pdfbase import pdfmetrics
-        from reportlab.pdfbase.ttfonts import TTFont
         
         if not filename:
             filename = f"document_{uuid.uuid4().hex[:8]}.pdf"
         
         output_path = DOCS_DIR / filename
         
-        # Регистрируем шрифт с поддержкой кириллицы
-        font_path = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
-        if os.path.exists(font_path):
-            pdfmetrics.registerFont(TTFont("DejaVu", font_path))
-            font_name = "DejaVu"
-        else:
-            font_name = "Helvetica"
-        
         c = canvas.Canvas(str(output_path), pagesize=A4)
         width, height = A4
         
-        # Добавляем текст
         text_object = c.beginText(40, height - 40)
-        text_object.setFont(font_name, 11)
+        text_object.setFont("Helvetica", 11)
         
         for line in text.split('\n'):
             text_object.textLine(line)
@@ -75,27 +63,42 @@ def convert_text_to_pdf(text: str, filename: str = None) -> tuple[bool, str, str
         return False, f"❌ Ошибка: {str(e)}", ""
 
 
-def ocr_from_image(image_path: str, lang: str = "rus+eng") -> tuple[bool, str, str]:
+def ocr_from_image(image_path: str, lang: str = "rus+eng") -> tuple:
     """OCR - распознавание текста с изображения"""
     try:
-        import pytesseract
         from PIL import Image
         
         if not os.path.exists(image_path):
             return False, "❌ Файл не найден", ""
         
-        image = Image.open(image_path)
-        text = pytesseract.image_to_string(image, lang=lang)
+        # Проверяем размер файла
+        file_size = os.path.getsize(image_path)
+        if file_size > 10 * 1024 * 1024:  # 10 MB
+            return False, "❌ Файл слишком большой (макс. 10 MB)", ""
         
-        if not text.strip():
-            return False, "❌ Текст не распознан. Попробуйте более четкое изображение", ""
-        
-        return True, "✅ Текст успешно распознан", text
+        # Пытаемся использовать pytesseract
+        try:
+            import pytesseract
+            image = Image.open(image_path)
+            text = pytesseract.image_to_string(image, lang=lang)
+            
+            if not text.strip():
+                return False, "❌ Текст не распознан. Попробуйте более четкое изображение", ""
+            
+            return True, "✅ Текст успешно распознан", text
+        except ImportError:
+            # Если pytesseract не установлен, возвращаем ошибку с инструкцией
+            return False, "❌ OCR временно недоступен. Библиотека pytesseract не установлена.\n\n💡 Для работы OCR необходима установка tesseract-ocr на сервер.", ""
+        except Exception as e:
+            # Если pytesseract установлен, но tesseract-ocr не установлен
+            if "tesseract is not installed" in str(e).lower():
+                return False, "❌ OCR временно недоступен. Tesseract-ocr не установлен на сервере.\n\n💡 Обратитесь к администратору для установки tesseract-ocr.", ""
+            return False, f"❌ Ошибка OCR: {str(e)}", ""
     
-    except ImportError as e:
-        return False, f"❌ Не установлены библиотеки: {e}", ""
+    except ImportError:
+        return False, "❌ Библиотека Pillow не установлена", ""
     except Exception as e:
-        return False, f"❌ Ошибка OCR: {str(e)}", ""
+        return False, f"❌ Ошибка: {str(e)}", ""
 
 
 def save_uploaded_file(file_bytes: bytes, extension: str) -> str:
@@ -112,19 +115,3 @@ def save_uploaded_file(file_bytes: bytes, extension: str) -> str:
 def get_file_extension(file_name: str) -> str:
     """Получить расширение файла"""
     return file_name.split('.')[-1].lower() if '.' in file_name else ""
-
-
-def convert_between_formats(input_path: str, target_format: str) -> tuple[bool, str, str]:
-    """Конвертация между форматами"""
-    input_ext = get_file_extension(input_path)
-    
-    if input_ext == "pdf" and target_format == "txt":
-        return convert_pdf_to_text(input_path)
-    
-    elif input_ext == "txt" and target_format == "pdf":
-        with open(input_path, 'r', encoding='utf-8') as f:
-            text = f.read()
-        return convert_text_to_pdf(text)
-    
-    else:
-        return False, f"❌ Конвертация {input_ext} → {target_format} не поддерживается", ""

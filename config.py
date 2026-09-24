@@ -1,23 +1,23 @@
+"""
+Конфигурация бота
+"""
+import os
 from pydantic_settings import BaseSettings
-from typing import List
 
 
 class Settings(BaseSettings):
-    BOT_TOKEN: str
-    PAYMENT_TOKEN: str
-    ADMIN_IDS: str
-    DATABASE_URL: str = "sqlite:///bot.db"
-    WEBHOOK_HOST: str = "https://your-domain.com"
-    WEBHOOK_PATH: str = "/webhook/bot"
-    DEBUG: bool = True
+    BOT_TOKEN: str = os.getenv("BOT_TOKEN", "")
+    ADMIN_IDS: str = os.getenv("ADMIN_IDS", "")
+    DATABASE_URL: str = os.getenv("DATABASE_URL", "sqlite:///./bot.db")
     
     @property
-    def admin_ids_list(self) -> List[int]:
+    def admin_ids_list(self) -> list:
+        if not self.ADMIN_IDS:
+            return []
         return [int(id.strip()) for id in self.ADMIN_IDS.split(",") if id.strip()]
     
     class Config:
         env_file = ".env"
-        case_sensitive = True
 
 
 settings = Settings()

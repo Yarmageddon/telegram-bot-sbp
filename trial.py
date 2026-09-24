@@ -2,53 +2,34 @@
 Триал-периоды
 """
 from datetime import datetime, timedelta
-from models import SessionLocal, User, Subscription
+from models import SessionLocal
 from models_v2 import Trial
 
 
-def start_trial(user_id: int, days: int = 7) -> tuple[bool, str]:
-    """Начать триал-период для пользователя"""
+def start_trial(user_id: int, days: int = 7) -> dict:
+    """Активировать триал-период"""
     db = SessionLocal()
     try:
-        # Проверяем, не был ли уже триал
+        # Проверяем, не использовал ли пользователь триал
         existing = db.query(Trial).filter(Trial.user_id == user_id).first()
-        if existing:
-            return False, "❌ Вы уже использовали триал-период"
+        if existing and existing.used:
+            return {"success": False, "message": "Триал уже использован"}
         
-        # Проверяем, нет ли активной подписки
-        active_sub = db.query(Subscription).filter(
-            Subscription.user_id == user_id,
-            Subscription.active == True,
-            Subscription.expires_at > datetime.now()
-        ).first()
-        if active_sub:
-            return False, "❌ У вас уже есть активная подписка"
-        
-        # Создаем триал
+        # Создаем новый триал
         trial = Trial(
             user_id=user_id,
             expires_at=datetime.now() + timedelta(days=days),
-            activated=True
+            used=True
         )
-        db.add(trial)
         
-        # Создаем подписку на триал
-        subscription = Subscription(
-            user_id=user_id,
-            plan="trial",
-            expires_at=datetime.now() + timedelta(days=days),
-            active=True
-        )
-        db.add(subscription)
+        if existing:
+            existing.expires_at = datetime.now() + timedelta(days=days)
+            existing.used = True
+        else:
+            db.add(trial)
         
         db.commit()
-        
-        return True, f"✅ Триал-период {days} дней активирован!"
-    
-    except Exception as e:
-        db.rollback()
-        return False, f"❌ Ошибка: {str(e)}"
-    
+        return {"success": True, "message": f"Триал активирован на {days} дней", "days_left": days}
     finally:
         db.close()
 
@@ -58,33 +39,20 @@ def check_trial_status(user_id: int) -> dict:
     db = SessionLocal()
     try:
         trial = db.query(Trial).filter(Trial.user_id == user_id).first()
-        
         if not trial:
-            return {"has_trial": False, "used": False}
+            return {"used": False, "active": False, "days_left": 0}
         
-        days_left = max(0, (trial.expires_at - datetime.now()).days)
+        if not trial.used:
+            return {"used": False, "active": False, "days_left": 0}
+        
+        days_left = (trial.expires_at - datetime.now()).days
+        active = days_left > 0
         
         return {
-            "has_trial": True,
             "used": True,
-            "days_left": days_left,
-            "expires_at": trial.expires_at,
-            "converted": trial.converted_to_paid
+            "active": active,
+            "days_left": max(0, days_left),
+            "expires_at": trial.expires_at
         }
-    
-    finally:
-        db.close()
-
-
-def convert_trial_to_paid(user_id: int) -> bool:
-    """Отметить, что триал конвертирован в платную подписку"""
-    db = SessionLocal()
-    try:
-        trial = db.query(Trial).filter(Trial.user_id == user_id).first()
-        if trial:
-            trial.converted_to_paid = True
-            db.commit()
-            return True
-        return False
     finally:
         db.close()

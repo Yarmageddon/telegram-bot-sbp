@@ -1,36 +1,37 @@
 """
-Telegram Bot - Main entry point for Railway deployment
+Точка входа для Railway
 """
 import asyncio
-import os
 import logging
+from models import init_db
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s'
-)
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
 async def main():
-    """Main function for Railway deployment"""
     logger.info("🚀 Starting Telegram Bot on Railway...")
     
-    # Import bot module
-    from bot_v2 import bot, dp
-    from models import init_db
-    from config import settings
-    
-    logger.info(f"✅ Bot initialized")
-    logger.info(f" Admin IDs: {settings.ADMIN_IDS}")
-    
-    # Initialize database
+    # Инициализация БД
     init_db()
     logger.info("✅ Database initialized")
     
-    # Start polling
-    logger.info("🔄 Starting polling...")
+    # Импорт и запуск бота
+    from bot_v2 import bot, dp
+    from aiogram.types import BotCommand
+    
+    # Установка команд бота
+    await bot.set_my_commands([
+        BotCommand(command="start", description="Главное меню"),
+        BotCommand(command="help", description="Помощь"),
+        BotCommand(command="account", description="Личный кабинет"),
+        BotCommand(command="subscribe", description="Оформить подписку"),
+        BotCommand(command="trial", description="Активировать триал"),
+        BotCommand(command="support", description="Поддержка")
+    ])
+    
+    # Удаление вебхука и запуск polling
+    await bot.delete_webhook(drop_pending_updates=True)
     await dp.start_polling(bot)
 
 

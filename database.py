@@ -1,13 +1,12 @@
-from models import User, Subscription, Payment, SessionLocal
+"""
+Функции работы с базой данных
+"""
 from datetime import datetime, timedelta
-from typing import Optional
+from models import SessionLocal, User, Subscription, Payment
 
 
-def get_or_create_user(db, telegram_id: int, username: str = None, 
-                       first_name: str = None, last_name: str = None) -> User:
-    """Get or create user"""
+def get_or_create_user(db, telegram_id, username=None, first_name=None, last_name=None):
     user = db.query(User).filter(User.telegram_id == telegram_id).first()
-    
     if not user:
         user = User(
             telegram_id=telegram_id,
@@ -18,61 +17,20 @@ def get_or_create_user(db, telegram_id: int, username: str = None,
         db.add(user)
         db.commit()
         db.refresh(user)
-    
     return user
 
 
-def create_payment(db, user_id: int, provider_tx_id: str, 
-                   amount: int, currency: str, payload: str) -> Payment:
-    """Create payment"""
-    payment = Payment(
-        user_id=user_id,
-        provider_transaction_id=provider_tx_id,
-        amount=amount,
-        currency=currency,
-        status="pending",
-        payload=payload
-    )
+def get_active_subscription(db, user_id):
+    return db.query(Subscription).filter(
+        Subscription.user_id == user_id,
+        Subscription.active == True,
+        Subscription.expires_at > datetime.now()
+    ).first()
+
+
+def create_payment(db, user_id, amount):
+    payment = Payment(user_id=user_id, amount=amount)
     db.add(payment)
     db.commit()
     db.refresh(payment)
     return payment
-
-
-def complete_payment(db, provider_tx_id: str) -> Optional[Payment]:
-    """Complete payment and activate subscription"""
-    payment = db.query(Payment).filter(Payment.provider_transaction_id == provider_tx_id).first()
-    
-    if payment and payment.status == "pending":
-        payment.status = "completed"
-        db.commit()
-        db.refresh(payment)
-        
-        # Create subscription
-        expires_at = datetime.now() + timedelta(days=30)
-        subscription = Subscription(
-            user_id=payment.user_id,
-            plan="monthly",
-            expires_at=expires_at,
-            active=True,
-            payment_id=payment.id
-        )
-        db.add(subscription)
-        db.commit()
-        
-        return payment
-    
-    return None
-
-
-def get_active_subscription(db, user_id: int) -> Optional[Subscription]:
-    """Get active subscription for user"""
-    subscription = db.query(Subscription).filter(
-        Subscription.user_id == user_id,
-        Subscription.active == True
-    ).order_by(Subscription.started_at.desc()).first()
-    
-    if subscription and subscription.is_active:
-        return subscription
-    
-    return None
