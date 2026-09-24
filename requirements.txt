@@ -7,7 +7,8 @@ pydantic-settings==2.1.0
 python-dotenv==1.0.0
 PyPDF2==3.0.1
 reportlab==4.0.9
-rapidocr-onnxruntime==1.4.4
+easyocr==1.7.1
 Pillow==10.2.0
 aiofiles==23.2.1
-onnxruntime==1.17.0
+torch==2.1.2
+torchvision==0.16.2
