@@ -183,7 +183,7 @@ def npa_qa_keyboard() -> InlineKeyboardMarkup:
         [InlineKeyboardButton(text="⏱ Сроки оформления ордера", callback_data="npa_q_order_terms")],
         [InlineKeyboardButton(text="📢 Уведомление МПГУ", callback_data="npa_q_mpgu")],
         [InlineKeyboardButton(text="📡 Уведомление ИАС УГД", callback_data="npa_q_iasugd")],
-        [InlineKeyboardButton(text="🚨 Аварийные работы", callback_data="npa_q_emergency")],
+        [InlineKeyboardButton(text="🚨 Аварийное уведомление", callback_data="npa_q_emergency")],
         [InlineKeyboardButton(text="🏗 Восстановление благоустройства", callback_data="npa_q_restoration")],
         [InlineKeyboardButton(text="❓ Задать свой вопрос", callback_data="npa_q_custom")],
         [InlineKeyboardButton(text="🔙 Назад", callback_data="back_to_menu")]
@@ -244,7 +244,7 @@ def npa_qa_keyboard() -> InlineKeyboardMarkup:
         [InlineKeyboardButton(text="📋 Что такое ордер?", callback_data="npa_q_orдер")],
         [InlineKeyboardButton(text="📢 Уведомление МПГУ", callback_data="npa_q_уведомление_мпгу")],
         [InlineKeyboardButton(text="📡 Уведомление ИАС УГД", callback_data="npa_q_уведомление_иас_угд")],
-        [InlineKeyboardButton(text="🚨 Аварийные работы", callback_data="npa_q_аварийные_работы")],
+        [InlineKeyboardButton(text="🚨 Аварийное уведомление", callback_data="npa_q_аварийное уведомление")],
         [InlineKeyboardButton(text="🏗 Восстановление благоустройства", callback_data="npa_q_восстановление_благоустройства")],
         [InlineKeyboardButton(text="❓ Задать свой вопрос", callback_data="npa_q_custom")],
         [InlineKeyboardButton(text="🔙 Назад", callback_data="back_to_menu")]
