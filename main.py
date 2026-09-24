@@ -18,7 +18,7 @@ async def main():
     logger.info("🚀 Starting Telegram Bot on Railway...")
     
     # Import bot module
-    from bot import bot, dp
+    from bot_v2 import bot, dp
     from models import init_db
     from config import settings
     
