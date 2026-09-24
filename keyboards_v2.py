@@ -55,7 +55,6 @@ def documents_keyboard() -> InlineKeyboardMarkup:
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="📄 PDF → Текст", callback_data="doc_pdf_to_txt")],
         [InlineKeyboardButton(text="📝 Текст → PDF", callback_data="doc_txt_to_pdf")],
-        [InlineKeyboardButton(text="📋 Шаблоны документов", callback_data="doc_templates")],
         [InlineKeyboardButton(text="🔙 Назад", callback_data="back_to_menu")]
     ])
     return keyboard
