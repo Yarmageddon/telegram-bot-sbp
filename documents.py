@@ -11,7 +11,7 @@ DOCS_DIR = Path("/tmp/documents")
 DOCS_DIR.mkdir(exist_ok=True)
 
 
-def convert_pdf_to_text(pdf_path: str) -> tuple[bool, str, str]:
+def convert_pdf_to_text(pdf_path: str) -> tuple:
     """Конвертация PDF в текст"""
     try:
         import PyPDF2
@@ -33,7 +33,7 @@ def convert_pdf_to_text(pdf_path: str) -> tuple[bool, str, str]:
         return False, f"❌ Ошибка: {str(e)}", ""
 
 
-def convert_text_to_pdf(text: str, filename: str = None) -> tuple[bool, str, str]:
+def convert_text_to_pdf(text: str, filename: str = None) -> tuple:
     """Конвертация текста в PDF"""
     try:
         from reportlab.lib.pagesizes import A4
@@ -75,25 +75,34 @@ def convert_text_to_pdf(text: str, filename: str = None) -> tuple[bool, str, str
         return False, f"❌ Ошибка: {str(e)}", ""
 
 
-def ocr_from_image(image_path: str, lang: str = "rus+eng") -> tuple[bool, str, str]:
-    """OCR - распознавание текста с изображения"""
+def ocr_from_image(image_path: str, lang: str = "ru+en") -> tuple:
+    """OCR - распознавание текста с изображения (через rapidocr)"""
     try:
-        import pytesseract
-        from PIL import Image
+        from rapidocr_onnxruntime import RapidOCR
         
         if not os.path.exists(image_path):
             return False, "❌ Файл не найден", ""
         
-        image = Image.open(image_path)
-        text = pytesseract.image_to_string(image, lang=lang)
+        # Создаём движок OCR
+        engine = RapidOCR()
+        
+        # Распознаём текст
+        result, elapse = engine(image_path)
+        
+        if not result:
+            return False, "❌ Текст не распознан. Попробуйте более четкое изображение", ""
+        
+        # result - это список списков: [[координаты, текст, уверенность], ...]
+        text_lines = [item[1] for item in result]
+        text = "\n".join(text_lines)
         
         if not text.strip():
             return False, "❌ Текст не распознан. Попробуйте более четкое изображение", ""
         
         return True, "✅ Текст успешно распознан", text
     
-    except ImportError as e:
-        return False, f"❌ Не установлены библиотеки: {e}", ""
+    except ImportError:
+        return False, "❌ Библиотека rapidocr-onnxruntime не установлена", ""
     except Exception as e:
         return False, f"❌ Ошибка OCR: {str(e)}", ""
 
@@ -114,7 +123,7 @@ def get_file_extension(file_name: str) -> str:
     return file_name.split('.')[-1].lower() if '.' in file_name else ""
 
 
-def convert_between_formats(input_path: str, target_format: str) -> tuple[bool, str, str]:
+def convert_between_formats(input_path: str, target_format: str) -> tuple:
     """Конвертация между форматами"""
     input_ext = get_file_extension(input_path)
     
