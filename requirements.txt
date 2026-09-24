@@ -10,5 +10,7 @@ reportlab==4.0.9
 easyocr==1.7.1
 Pillow==10.2.0
 aiofiles==23.2.1
-torch==2.1.2
-torchvision==0.16.2
+torch
+torchvision
+numpy
+opencv-python-headless
