@@ -1,0 +1,9 @@
+aiogram==3.4.1
+sqlalchemy==2.0.25
+pydantic-settings==2.1.0
+python-dotenv==1.0.0
+reportlab==4.0.9
+PyPDF2==3.0.1
+Pillow==10.2.0
+pytesseract==0.3.10
+aiofiles==23.2.1
