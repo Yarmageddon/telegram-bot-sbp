@@ -1,15 +1,27 @@
 """
 database.py — подключение к БД и инициализация.
+
+ВАЖНО: этот файл НЕ должен импортировать из самого себя!
+Только:
+- стандартные модули (os, logging)
+- sqlalchemy
+- models (для Base)
 """
 
 import os
 import logging
+
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from database import init_db
+from models import Base
 
 logger = logging.getLogger(__name__)
+
+
+# ═══════════════════════════════════════════════════════════════
+# ПОДКЛЮЧЕНИЕ К БД
+# ═══════════════════════════════════════════════════════════════
 
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./bot.db")
 
@@ -22,6 +34,7 @@ if DATABASE_URL.startswith("sqlite"):
         DATABASE_URL,
         connect_args={"check_same_thread": False},
     )
+    logger.info(f"🗄 БД: SQLite ({DATABASE_URL})")
 else:
     engine = create_engine(
         DATABASE_URL,
@@ -30,9 +43,24 @@ else:
         pool_size=5,
         max_overflow=10,
     )
+    logger.info("🗄 БД: PostgreSQL")
+
+
+# ═══════════════════════════════════════════════════════════════
+# СЕССИИ
+# ═══════════════════════════════════════════════════════════════
 
 SessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False)
 
+
+def get_session():
+    """Получить сессию. Использовать в `with SessionLocal() as db:`."""
+    return SessionLocal()
+
+
+# ═══════════════════════════════════════════════════════════════
+# ИНИЦИАЛИЗАЦИЯ ТАБЛИЦ
+# ═══════════════════════════════════════════════════════════════
 
 async def init_db() -> None:
     """Создать все таблицы, если их нет."""
@@ -40,8 +68,3 @@ async def init_db() -> None:
     from models import Plant, Reminder  # noqa: F401
     Base.metadata.create_all(bind=engine)
     logger.info("✅ Таблицы созданы/проверены")
-
-
-def get_session():
-    """Получить сессию. Использовать в `with SessionLocal() as db:`."""
-    return SessionLocal()
