@@ -128,7 +128,8 @@ async def _init_database() -> None:
     Если нет — пропускаем, бот работает без БД.
     """
     try:
-        from database import init_db  # type: ignore
+        from database import init_db
+from scheduler import reminder_worker
         await init_db()
         logger.info("✅ БД инициализирована")
     except ImportError:
@@ -428,10 +429,16 @@ async def main() -> None:
     # 6. Запускаем polling
     logger.info("🚀 Бот запущен. Ctrl+C — остановка.\n")
 
-    try:
-        await dp.start_polling(
-            bot,
-            allowed_updates=dp.resolve_used_update_types(),
+   # Запускаем фоновый планировщик напоминаний
+scheduler_task = asyncio.create_task(reminder_worker(bot))
+logger.info("⏰ Планировщик напоминаний запущен")
+
+try:
+    await dp.start_polling(bot, allowed_updates=dp.resolve_used_update_types())
+finally:
+    scheduler_task.cancel()
+    await bot.session.close()
+    logger.info("👋 Бот остановлен")
         )
     finally:
         await bot.session.close()
