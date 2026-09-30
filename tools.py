@@ -9,8 +9,10 @@ import json
 import logging
 import uuid
 import inspect
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
+from database import SessionLocal
+from models import Plant, Reminder, utc_now
 
 logger = logging.getLogger(__name__)
 
@@ -405,28 +407,167 @@ async def save_draft(user_id: int, title: str, body: str) -> dict:
 
 
 # ═══════════════════════════════════════════════════════════════
-# 15. САД (агент: garden)
+# 15. САД (агент: garden) — с реальной БД и напоминаниями
 # ═══════════════════════════════════════════════════════════════
 
-async def add_plant(user_id: int, name: str, species: Optional[str] = None,
+async def add_plant(user_id: int, name: str, species: str = None,
                     watering_days: int = 3) -> dict:
-    p = {"id": _new_id("plant"), "name": name, "species": species,
-         "watering_days": watering_days, "last_watered": None, "created_at": _now()}
-    _store("plants", user_id).append(p)
-    return {"status": "ok", "plant_id": p["id"],
-            "message": f"«{name}» добавлено (полив каждые {watering_days} дн.)"}
+    """
+    Добавить растение и сразу создать напоминание о поливе.
+    """
+    logger.info(
+        f"[TOOL] add_plant: user={user_id}, name={name}, "
+        f"watering_days={watering_days}"
+    )
+    with SessionLocal() as db:
+        # 1. Создаём растение
+        plant = Plant(
+            user_id=user_id,
+            name=name.strip(),
+            species=species,
+            watering_days=watering_days,
+            last_watered=utc_now(),
+        )
+        db.add(plant)
+        db.flush()  # получаем plant.id
+
+        # 2. Создаём напоминание
+        remind_at = utc_now() + timedelta(days=watering_days)
+        reminder = Reminder(
+            user_id=user_id,
+            text=f"💧 Полей «{plant.name}»",
+            when=remind_at,
+            status="pending",
+            related_type="plant",
+            related_id=plant.id,
+        )
+        db.add(reminder)
+        db.commit()
+
+        return {
+            "status": "ok",
+            "plant_id": plant.id,
+            "watering_days": watering_days,
+            "next_watering": remind_at.strftime("%d.%m.%Y %H:%M"),
+            "message": (
+                f"🌱 «{plant.name}» добавлено.\n"
+                f"Полив: каждые {watering_days} дн.\n"
+                f"Напомню: {remind_at.strftime('%d.%m.%Y')}"
+            ),
+        }
+
+
+async def water_plant(user_id: int, name: str) -> dict:
+    """
+    Отметить полив: обновить last_watered и пересоздать напоминание.
+    """
+    logger.info(f"[TOOL] water_plant: user={user_id}, name={name}")
+    with SessionLocal() as db:
+        # Ищем растение по частичному совпадению имени
+        plant = (
+            db.query(Plant)
+            .filter(Plant.user_id == user_id, Plant.name.ilike(f"%{name}%"))
+            .first()
+        )
+        if not plant:
+            return {
+                "status": "error",
+                "message": f"Растение «{name}» не найдено. Добавить?",
+            }
+
+        now = utc_now()
+        plant.last_watered = now
+
+        # Отменяем старые pending-напоминания по этому растению
+        db.query(Reminder).filter(
+            Reminder.user_id == user_id,
+            Reminder.related_type == "plant",
+            Reminder.related_id == plant.id,
+            Reminder.status == "pending",
+        ).update({"status": "cancelled"})
+
+        # Создаём новое
+        remind_at = now + timedelta(days=plant.watering_days)
+        new_reminder = Reminder(
+            user_id=user_id,
+            text=f"💧 Полей «{plant.name}»",
+            when=remind_at,
+            status="pending",
+            related_type="plant",
+            related_id=plant.id,
+        )
+        db.add(new_reminder)
+        db.commit()
+
+        return {
+            "status": "ok",
+            "plant_id": plant.id,
+            "watered_at": now.strftime("%d.%m.%Y %H:%M"),
+            "next_watering": remind_at.strftime("%d.%m.%Y"),
+            "message": (
+                f"💧 «{plant.name}» полит ({now.strftime('%d.%m.%Y')}).\n"
+                f"Следующий полив: {remind_at.strftime('%d.%m.%Y')}"
+            ),
+        }
+
 
 async def list_plants(user_id: int) -> dict:
-    items = _store("plants", user_id)
-    return {"status": "ok", "count": len(items), "plants": items}
+    """Список растений с датами последнего и следующего полива."""
+    logger.info(f"[TOOL] list_plants: user={user_id}")
+    with SessionLocal() as db:
+        plants = (
+            db.query(Plant)
+            .filter(Plant.user_id == user_id)
+            .order_by(Plant.name)
+            .all()
+        )
+
+        items = []
+        for p in plants:
+            next_w = p.next_watering()
+            overdue = next_w <= utc_now()
+            items.append({
+                "id": p.id,
+                "name": p.name,
+                "species": p.species,
+                "watering_days": p.watering_days,
+                "last_watered": p.last_watered.strftime("%d.%m.%Y") if p.last_watered else None,
+                "next_watering": next_w.strftime("%d.%m.%Y"),
+                "overdue": overdue,
+            })
+
+        return {
+            "status": "ok",
+            "count": len(items),
+            "plants": items,
+            "message": f"У тебя {len(items)} растений",
+        }
+
 
 async def watering_schedule(user_id: int) -> dict:
-    plants = _store("plants", user_id)
-    return {"status": "ok", "schedule": [
-        {"plant": p["name"],
-         "next_watering": "завтра" if i % 2 == 0 else "через 2 дня"}
-        for i, p in enumerate(plants)
-    ]}
+    """Расписание полива: что полить сегодня / просрочено / скоро."""
+    logger.info(f"[TOOL] watering_schedule: user={user_id}")
+    with SessionLocal() as db:
+        plants = db.query(Plant).filter(Plant.user_id == user_id).all()
+        now = utc_now()
+        today_end = now.replace(hour=23, minute=59, second=59)
+
+        overdue, today, upcoming = [], [], []
+        for p in plants:
+            nxt = p.next_watering()
+            if nxt < now:
+                overdue.append({"name": p.name, "date": nxt.strftime("%d.%m.%Y")})
+            elif nxt <= today_end:
+                today.append({"name": p.name, "date": nxt.strftime("%d.%m.%Y")})
+            else:
+                upcoming.append({"name": p.name, "date": nxt.strftime("%d.%m.%Y")})
+
+        return {
+            "status": "ok",
+            "overdue": overdue,
+            "today": today,
+            "upcoming": upcoming,
+        }
 
 
 # ═══════════════════════════════════════════════════════════════
