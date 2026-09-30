@@ -98,12 +98,15 @@ async def _run_loop(messages: list[dict], agent: AgentConfig,
                          "tool_calls": tool_calls})
 
         # Выполняем каждый вызов
-        for tc in tool_calls:
-            name = tc["function"]["name"]
-            try:
-                args = json.loads(tc["function"].get("arguments") or "{}")
-            except json.JSONDecodeError:
-                args = {}
+       for tc in tool_calls:
+    name = tc["function"]["name"]
+    args_raw = tc["function"].get("arguments", "{}")
+    try:
+        args = json.loads(args_raw) if isinstance(args_raw, str) else args_raw
+    except (json.JSONDecodeError, TypeError):
+        logger.warning(f"Некорректный JSON в аргументах {name}: {args_raw}")
+        args = {}
+    # ...
 
             logger.info(f"[ROUTER] 🔧 {name}({args})")
             result = await execute_tool(name, user_id=user_id, **args)
