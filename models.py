@@ -1,18 +1,45 @@
 """
-Database models — единая точка истины для всех таблиц
+models.py — модели БД и подключение.
 """
-from sqlalchemy import create_engine, Column, Integer, String, Boolean, DateTime, Float, Text, BigInteger
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
-from datetime import datetime
-import os
 
+import os
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker, declarative_base
+
+# ─── Берём URL из переменных окружения ──────────────────────────
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./bot.db")
 
-Base = declarative_base()
-engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False} if "sqlite" in DATABASE_URL else {})
-SessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False)
+# Railway отдаёт postgres://, SQLAlchemy ждёт postgresql://
+if DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
 
+# ─── Создаём engine ─────────────────────────────────────────────
+if DATABASE_URL.startswith("sqlite"):
+    engine = create_engine(
+        DATABASE_URL,
+        connect_args={"check_same_thread": False},
+    )
+else:
+    # PostgreSQL — пул соединений для стабильности на Railway
+    engine = create_engine(
+        DATABASE_URL,
+        pool_pre_ping=True,   # проверять соединение перед использованием
+        pool_recycle=300,      # пересоздавать соединения каждые 5 мин
+    )
+
+# ─── Сессии ─────────────────────────────────────────────────────
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+# ─── Базовый класс моделей ──────────────────────────────────────
+Base = declarative_base()
+
+
+# ─── Инициализация таблиц ───────────────────────────────────────
+async def init_db() -> None:
+    """Создать все таблицы (если их нет)."""
+    # Импорт моделей — обязателен, чтобы Base «увидел» их
+    # Если у вас уже импортируются ниже — оставьте только Base.metadata.create_all.
+    Base.metadata.create_all(bind=engine)
 
 class User(Base):
     __tablename__ = "users"
