@@ -85,7 +85,17 @@ def _headers() -> dict:
 # ═══════════════════════════════════════════════════════════════
 # ВЫЗОВ LLM
 # ═══════════════════════════════════════════════════════════════
-
+# Автокоррекция префикса модели под провайдера
+model = LLM_MODEL
+if not OPENROUTER_API_KEY and model.startswith("openai/"):
+    # OpenAI-API не понимает префикс "openai/"
+    model = model.split("/", 1)[1]
+    logger.warning(f"[ROUTER] Модель приведена к формату OpenAI: {model}")
+elif OPENROUTER_API_KEY and "/" not in model:
+    # OpenRouter требует префикс провайдера
+    model = f"openai/{model}"
+    logger.warning(f"[ROUTER] Модель приведена к формату OpenRouter: {model}")
+    
 async def _call_llm(
     messages: list[dict],
     temperature: float = 0.7,
@@ -93,7 +103,7 @@ async def _call_llm(
 ) -> dict:
     """Низкоуровневый вызов LLM API."""
     payload: dict = {
-        "model": LLM_MODEL,
+        "model": model,
         "messages": messages,
         "temperature": temperature,
     }
