@@ -54,18 +54,17 @@ class AgentStates(StatesGroup):
 
 @agents_router.message(Command("agents"))
 async def cmd_agents(message: Message, state: FSMContext):
-    """Показать главное меню агентов."""
-    # Сбрасываем предыдущее состояние
+    """Показать список всех агентов."""
     await state.clear()
     await state.set_state(AgentStates.browsing)
 
     total = len(get_available_agents())
-    llm_status = "" if is_llm_configured() else "\n\n⚠️ _AI не настроен — демо-режим_"
+    llm_note = "" if is_llm_configured() else "\n\n⚠️ _AI не настроен — демо-режим_"
 
     await message.answer(
         f"🤖 *Агенты на связи!*\n\n"
         f"Доступно агентов: *{total}*\n"
-        f"Выбери категорию или конкретного агента:{llm_status}",
+        f"Выбери нужного:{llm_note}",
         reply_markup=agents_main_menu(),
         parse_mode="Markdown",
     )
