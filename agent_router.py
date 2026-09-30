@@ -106,6 +106,7 @@ async def _call_llm(
         "model": model,
         "messages": messages,
         "temperature": temperature,
+        "max_tokens": 150,
     }
 
     if tools:
