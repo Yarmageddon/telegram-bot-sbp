@@ -399,8 +399,8 @@ async def main() -> None:
     # 1. Проверяем настройки
     _validate_settings()
 
-    # 2. Инициализируем БД (если есть)
-    await _init_database()
+    # 2. Инициализируем БД
+    await init_db()
 
     # 3. Healthcheck LLM
     info = get_llm_info()
@@ -427,14 +427,28 @@ async def main() -> None:
     # 4. Устанавливаем команды
     await _set_bot_commands()
 
-    # 5. Удаляем вебхук (на случай, если был)
+    # 5. Удаляем вебхук
     try:
         await bot.delete_webhook(drop_pending_updates=True)
     except Exception as e:
         logger.debug(f"delete_webhook: {e}")
 
-    # 6. Запускаем polling
+    # 6. Запускаем планировщик напоминаний
+    scheduler_task = asyncio.create_task(reminder_worker(bot))
+    logger.info("⏰ Планировщик напоминаний запущен")
+
+    # 7. Запускаем polling
     logger.info("🚀 Бот запущен. Ctrl+C — остановка.\n")
+
+    try:
+        await dp.start_polling(
+            bot,
+            allowed_updates=dp.resolve_used_update_types(),
+        )
+    finally:
+        scheduler_task.cancel()
+        await bot.session.close()
+        logger.info("👋 Бот остановлен")
 
    # Запускаем фоновый планировщик напоминаний
 scheduler_task = asyncio.create_task(reminder_worker(bot))
