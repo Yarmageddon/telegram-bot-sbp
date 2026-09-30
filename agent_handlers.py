@@ -76,13 +76,13 @@ async def cmd_agents(message: Message, state: FSMContext):
 
 @agents_router.callback_query(F.data == "agents:menu")
 async def callback_agents_menu(callback: CallbackQuery, state: FSMContext):
-    """Вернуться в главное меню агентов."""
+    """Вернуться к списку агентов."""
     await state.set_state(AgentStates.browsing)
     total = len(get_available_agents())
     await callback.message.edit_text(
         f"🤖 *Агенты на связи!*\n\n"
         f"Доступно агентов: *{total}*\n"
-        f"Выбери категорию или конкретного агента:",
+        f"Выбери нужного:",
         reply_markup=agents_main_menu(),
         parse_mode="Markdown",
     )
