@@ -24,33 +24,22 @@ from agents import (
 # ═══════════════════════════════════════════════════════════════
 
 def agents_main_menu() -> InlineKeyboardMarkup:
-    """Главное меню: категории + кнопка "Все агенты"."""
+    """Главное меню: плоский список всех агентов по 2 в ряд."""
+    agents = get_available_agents()
     rows = []
 
-    # Кнопки категорий
-    for category in get_categories():
-        agents_in_cat = get_agents_by_category(category)
-        if not agents_in_cat:
-            continue
-        title = get_category_title(category)
-        count = len(agents_in_cat)
+    # Пары по 2 кнопки в ряд
+    for i in range(0, len(agents), 2):
+        pair = agents[i:i + 2]
         rows.append([
             InlineKeyboardButton(
-                text=f"{title} ({count})",
-                callback_data=f"agent_cat:{category}",
+                text=f"{a.emoji} {a.name}",
+                callback_data=f"agent:{a.id}",
             )
+            for a in pair
         ])
 
-    # Кнопка "Все агенты"
-    total = len(get_available_agents())
-    rows.append([
-        InlineKeyboardButton(
-            text=f"🤖 Все агенты ({total})",
-            callback_data="agent_all",
-        )
-    ])
-
-    # Назад в главное меню бота
+    # Кнопка «Назад» в главное меню бота
     rows.append([
         InlineKeyboardButton(text="🔙 В главное меню", callback_data="back:main")
     ])
