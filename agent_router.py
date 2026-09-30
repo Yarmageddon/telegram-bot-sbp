@@ -62,9 +62,10 @@ async def _call_llm(messages: list[dict], temperature: float = 0.7,
                     tools: Optional[list[dict]] = None) -> dict:
     payload = {"model": LLM_MODEL, "messages": messages,
                "temperature": temperature}
-    if tools:
-        payload["tools"] = tools
-        payload["tool_choice"] = "auto"
+   if tools:
+    payload["tools"] = tools
+    # Некоторые модели не поддерживают tool_choice
+    # payload["tool_choice"] = "auto"
 
     async with httpx.AsyncClient(timeout=REQUEST_TIMEOUT) as client:
         r = await client.post(LLM_API_URL, headers=_headers(), json=payload)
