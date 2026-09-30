@@ -53,6 +53,14 @@ from agent_handlers import agents_router
 from agent_router import healthcheck, is_llm_configured, get_llm_info
 from agent_keyboards import agents_main_menu
 
+# ─── Роутер агентов ─────────────────────────────────────────────
+from agent_handlers import agents_router
+from agent_router import healthcheck, is_llm_configured, get_llm_info
+from agent_keyboards import agents_main_menu
+
+# ─── БД и планировщик ───────────────────────────────────────────
+from database import init_db          # ← было from models import init_db
+from scheduler import reminder_worker # ← новый импорт
 
 # ═══════════════════════════════════════════════════════════════
 # НАСТРОЙКИ
@@ -129,7 +137,6 @@ async def _init_database() -> None:
     """
     try:
         from database import init_db
-from scheduler import reminder_worker
         await init_db()
         logger.info("✅ БД инициализирована")
     except ImportError:
