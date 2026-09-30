@@ -160,7 +160,7 @@ async def route_to_agent(user_message: str, agent_id: str, user_id: int,
     except httpx.TimeoutException:
         return "⏱️ Модель не ответила вовремя."
     except Exception as e:
-        logger.exception(f"[ROUTER] {e}")
+        logger.error(f"LLM 400: {e.response.text[:500]}")
         return f"⚠️ Ошибка: {type(e).__name__}."
 
 
