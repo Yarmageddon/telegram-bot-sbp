@@ -303,22 +303,13 @@ async def callback_help(callback: CallbackQuery):
     await callback.answer()
 
 
-@dp.callback_query(F.data == "agents:menu")
-async def callback_agents_menu(callback: CallbackQuery, state: FSMContext):
-    """Кнопка «AI-агенты» — открывает меню агентов."""
-    # Этот callback ловится в agent_handlers.py, но если по какой-то
-    # причине там не поймался — обработаем здесь.
-    # Основная логика — в agents_router.
-    from agents import get_available_agents
-    total = len(get_available_agents())
     await callback.message.edit_text(
         f"🤖 *Агенты на связи!*\n\n"
         f"Доступно агентов: *{total}*\n"
-        f"Выбери категорию или конкретного агента:",
+        f"Выбери нужного:",
         reply_markup=agents_main_menu(),
         parse_mode="Markdown",
     )
-    await callback.answer()
 
 
 @dp.callback_query(F.data == "back:main")
