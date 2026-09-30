@@ -620,6 +620,7 @@ TOOL_REGISTRY: dict[str, callable] = {
     # Сад
     "add_plant": add_plant, "list_plants": list_plants,
     "watering_schedule": watering_schedule,
+    "water_plant": water_plant,
 }
 
 
@@ -890,6 +891,12 @@ TOOL_SCHEMAS: dict[str, dict] = {
     "watering_schedule": {"type": "function", "function": {
         "name": "watering_schedule", "description": "Расписание полива",
         "parameters": {"type": "object", "properties": {}}}},
+    "water_plant": {"type": "function", "function": {
+    "name": "water_plant",
+    "description": "Отметить, что растение полито. Обновляет дату и пересоздаёт напоминание.",
+    "parameters": {"type": "object", "properties": {
+        "name": {"type": "string", "description": "Имя растения"}
+    }, "required": ["name"]}}},
 }
 
 
