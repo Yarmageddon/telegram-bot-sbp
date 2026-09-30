@@ -10,18 +10,12 @@ class Settings(BaseSettings):
     ADMIN_IDS: str = os.getenv("ADMIN_IDS", "")
     DATABASE_URL: str = os.getenv("DATABASE_URL", "sqlite:///./bot.db")
 
-    # Тарифы (руб.)
-    PRICE_BASIC: int = 299
-    PRICE_PRO: int = 799
-    PRICE_BUSINESS: int = 1999
-
-    # Реквизиты для оплаты (СБП / карта)
-    PAYMENT_CARD: str = os.getenv("PAYMENT_CARD", "2200 0000 0000 0000")
-    PAYMENT_PHONE: str = os.getenv("PAYMENT_PHONE", "+7 900 000-00-00")
-
-    # Реферальный бонус (дней подписки)
-    REFERRAL_BONUS_DAYS: int = 7
-
+    # ── AI ──
+    OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
+    OPENROUTER_API_KEY: str = os.getenv("OPENROUTER_API_KEY", "")
+    LLM_API_URL: str = os.getenv("LLM_API_URL", "https://api.openai.com/v1/chat/completions")
+    LLM_MODEL: str = os.getenv("LLM_MODEL", "gpt-4o-mini")
+    
     @property
     def admin_ids_list(self) -> list[int]:
         if not self.ADMIN_IDS:
