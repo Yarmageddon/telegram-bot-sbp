@@ -40,8 +40,8 @@ AGENTS: dict[str, AgentConfig] = {
 
     "reminder": AgentConfig(
         id="reminder",
-        name="Напоминалка",
-        emoji="⏰",
+        name="Напоминания",
+        emoji="🔔",
         description="Создаю напоминания и слежу за временем",
         category="productivity",
         system_prompt=(
@@ -70,7 +70,7 @@ AGENTS: dict[str, AgentConfig] = {
 
     "task_manager": AgentConfig(
         id="task_manager",
-        name="Делократ",
+        name="Менеджер",
         emoji="📋",
         description="Помогу организовать задачи и приоритеты",
         category="productivity",
@@ -128,7 +128,7 @@ AGENTS: dict[str, AgentConfig] = {
 
     "subscription": AgentConfig(
         id="subscription",
-        name="Подписконтроль",
+        name="Подписки",
         emoji="💳",
         description="Слежу за подписками и списаниями",
         category="productivity",
@@ -159,7 +159,7 @@ AGENTS: dict[str, AgentConfig] = {
 
     "cleaning": AgentConfig(
         id="cleaning",
-        name="Чистюля",
+        name="Уборка",
         emoji="🧹",
         description="План уборки и домашние дела",
         category="productivity",
@@ -216,7 +216,7 @@ AGENTS: dict[str, AgentConfig] = {
 
     "weather": AgentConfig(
         id="weather",
-        name="Погодник",
+        name="Погода",
         emoji="🌤️",
         description="Расскажу о погоде и дам советы",
         category="info",
@@ -244,7 +244,7 @@ AGENTS: dict[str, AgentConfig] = {
 
     "calendar_birthday": AgentConfig(
         id="calendar_birthday",
-        name="Днюха",
+        name="Дни рождения",
         emoji="🎂",
         description="Календарь и дни рождения близких",
         category="info",
@@ -271,7 +271,7 @@ AGENTS: dict[str, AgentConfig] = {
 
     "email_triage": AgentConfig(
         id="email_triage",
-        name="Почтовик",
+        name="Почта",
         emoji="📧",
         description="Разбираю почту и готовлю ответы",
         category="info",
@@ -301,7 +301,7 @@ AGENTS: dict[str, AgentConfig] = {
 
     "nutrition": AgentConfig(
         id="nutrition",
-        name="Нутрибот",
+        name="Питание",
         emoji="🥗",
         description="Слежу за питанием и водным балансом",
         category="health",
@@ -360,7 +360,7 @@ AGENTS: dict[str, AgentConfig] = {
 
     "lawyer": AgentConfig(
         id="lawyer",
-        name="Правовед",
+        name="Документы",
         emoji="⚖️",
         description="Помогу с документами и сроками",
         category="work",
@@ -417,7 +417,7 @@ AGENTS: dict[str, AgentConfig] = {
 
     "translator": AgentConfig(
         id="translator",
-        name="Полиглот",
+        name="Переводчик",
         emoji="🌍",
         description="Перевожу с учётом контекста",
         category="work",
@@ -446,7 +446,7 @@ AGENTS: dict[str, AgentConfig] = {
 
     "copywriter": AgentConfig(
         id="copywriter",
-        name="Текстоман",
+        name="Копирайтер",
         emoji="✍️",
         description="Пишу тексты под задачу",
         category="work",
@@ -475,7 +475,7 @@ AGENTS: dict[str, AgentConfig] = {
 
     "garden": AgentConfig(
         id="garden",
-        name="Садовник",
+        name="Цветы",
         emoji="🌱",
         description="Уход за растениями и садом",
         category="home",
