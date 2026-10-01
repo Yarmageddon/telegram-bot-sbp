@@ -118,16 +118,13 @@ async def _call_llm(
 ) -> dict:
     """Низкоуровневый вызов LLM API."""
     payload: dict = {
-        "model": model,
+        "model": model,               # ← переменная из автокоррекции
         "messages": messages,
         "temperature": temperature,
-        "max_tokens": 150,
     }
 
     if tools:
         payload["tools"] = tools
-        # tool_choice: "auto" — часто вызывает 400. Отправляем только
-        # если явно разрешено через переменную окружения.
         if SEND_TOOL_CHOICE:
             payload["tool_choice"] = "auto"
 
@@ -144,11 +141,10 @@ async def _call_llm(
             payload.pop("tool_choice", None)
             r = await client.post(LLM_API_URL, headers=_headers(), json=payload)
 
-        # Логируем детали ошибки, если она осталась
         if r.status_code >= 400:
             logger.error(
                 f"[ROUTER] LLM HTTP {r.status_code}. "
-                f"Model={LLM_MODEL}. Response: {r.text[:600]}"
+                f"Model={model}. Response: {r.text[:600]}"
             )
 
         r.raise_for_status()
