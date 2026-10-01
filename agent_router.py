@@ -205,35 +205,34 @@ async def _run_loop(messages: list[dict], agent: AgentConfig,
             })
 
     # Превысили лимит итераций.
-# ВАЖНО: не делаем вызов без tools — Groq это блокирует
-# (модель всё равно пытается вызвать инструмент → 400 tool_use_failed).
-# Вместо этого просим модель подвести итог, оставив tools доступными.
-logger.warning(f"[ROUTER] Лимит итераций ({MAX_TOOL_ITERATIONS}) исчерпан")
+    # ВАЖНО: не делаем вызов без tools — Groq это блокирует
+    # (модель всё равно пытается вызвать инструмент → 400 tool_use_failed).
+    logger.warning(f"[ROUTER] Лимит итераций ({MAX_TOOL_ITERATIONS}) исчерпан")
 
-messages.append({
-    "role": "user",
-    "content": (
-        "Ты выполнил много действий. Подведи итог того, что уже сделано, "
-        "и ответь пользователю кратко. БОЛЬШЕ НЕ ВЫЗЫВАЙ инструменты."
-    ),
-})
+    messages.append({
+        "role": "user",
+        "content": (
+            "Ты выполнил много действий. Подведи итог того, что уже сделано, "
+            "и ответь пользователю кратко. БОЛЬШЕ НЕ ВЫЗЫВАЙ инструменты."
+        ),
+    })
 
-try:
-    final = await _call_llm(
-        messages,
-        agent.temperature,
-        tools=tools,  # ← tools остаются, но модель проинструктирована не звать
-    )
-    content = final["choices"][0]["message"].get("content")
-    if content:
-        return content
-    return "⚠️ Не удалось получить финальный ответ."
-except Exception as e:
-    logger.error(f"[ROUTER] Финальный вызов упал: {e}")
-    return (
-        "⚠️ Много шагов за раз. Попробуй разбить задачу на части "
-        "или сформулировать её иначе."
-    )
+    try:
+        final = await _call_llm(
+            messages,
+            agent.temperature,
+            tools=tools,
+        )
+        content = final["choices"][0]["message"].get("content")
+        if content:
+            return content
+        return "⚠️ Не удалось получить финальный ответ."
+    except Exception as e:
+        logger.error(f"[ROUTER] Финальный вызов упал: {e}")
+        return (
+            "⚠️ Много шагов за раз. Попробуй разбить задачу на части "
+            "или сформулировать её иначе."
+        )
 
 
 # ═══════════════════════════════════════════════════════════════
