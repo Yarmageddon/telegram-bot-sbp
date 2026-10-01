@@ -149,7 +149,7 @@ async def cmd_start(message: Message, state: FSMContext):
     if not is_llm_configured():
         llm_note = "\n\n⚠️ _AI не настроен — агенты работают в демо-режиме._"
 
-       text = (
+    text = (
         f"👋 Привет, *{user_name}*!\n\n"
         f"Я — бот с *10 AI-агентами*. Каждый специализируется "
         f"на своей задаче:\n\n"
