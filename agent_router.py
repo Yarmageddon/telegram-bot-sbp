@@ -57,20 +57,22 @@ SEND_TOOL_CHOICE = os.getenv("SEND_TOOL_CHOICE", "false").lower() in ("1", "true
 # ═══════════════════════════════════════════════════════════════
 
 def is_llm_configured() -> bool:
-    return bool(OPENAI_API_KEY or OPENROUTER_API_KEY)
-
+    return bool(GROQ_API_KEY or OPENROUTER_API_KEY or OPENAI_API_KEY)
 
 def get_llm_info() -> dict:
-    provider = (
-        "openrouter" if OPENROUTER_API_KEY
-        else ("openai" if OPENAI_API_KEY else "none")
-    )
+    if GROQ_API_KEY:
+        provider = "groq"
+    elif OPENROUTER_API_KEY:
+        provider = "openrouter"
+    elif OPENAI_API_KEY:
+        provider = "openai"
+    else:
+        provider = "none"
     return {
         "provider": provider,
         "model": LLM_MODEL,
         "url": LLM_API_URL,
         "configured": is_llm_configured(),
-        "send_tool_choice": SEND_TOOL_CHOICE,
     }
 
 
@@ -92,14 +94,22 @@ def _headers() -> dict:
 # ═══════════════════════════════════════════════════════════════
 # Автокоррекция префикса модели под провайдера
 model = LLM_MODEL
-if not OPENROUTER_API_KEY and model.startswith("openai/"):
-    # OpenAI-API не понимает префикс "openai/"
-    model = model.split("/", 1)[1]
-    logger.warning(f"[ROUTER] Модель приведена к формату OpenAI: {model}")
-elif OPENROUTER_API_KEY and "/" not in model:
+
+if GROQ_API_KEY:
+    # Groq не принимает префикс "openai/" — убираем его, если есть
+    if model.startswith("openai/"):
+        model = model.split("/", 1)[1]
+        logger.info(f"[ROUTER] Groq: убран префикс openai/ → {model}")
+elif OPENROUTER_API_KEY:
     # OpenRouter требует префикс провайдера
-    model = f"openai/{model}"
-    logger.warning(f"[ROUTER] Модель приведена к формату OpenRouter: {model}")
+    if "/" not in model:
+        model = f"openai/{model}"
+        logger.info(f"[ROUTER] OpenRouter: добавлен префикс → {model}")
+elif OPENAI_API_KEY:
+    # OpenAI не понимает префикс "openai/"
+    if model.startswith("openai/"):
+        model = model.split("/", 1)[1]
+        logger.info(f"[ROUTER] OpenAI: убран префикс openai/ → {model}")
     
 async def _call_llm(
     messages: list[dict],
