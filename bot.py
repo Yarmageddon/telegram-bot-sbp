@@ -30,7 +30,7 @@ except ImportError:
 from aiogram import Bot, Dispatcher, F
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
-from aiogram.filters import Command, CommandStart
+from aiogram.filters import Command, CommandStart, StateFilter
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.types import (
@@ -44,7 +44,7 @@ from aiogram.types import (
 # ─── Роутер агентов ─────────────────────────────────────────────
 from agent_handlers import agents_router
 from agent_router import healthcheck, is_llm_configured, get_llm_info
-from agent_keyboards import agents_main_menu
+
 
 # ─── БД и планировщик ───────────────────────────────────────────
 from database import init_db
@@ -149,15 +149,14 @@ async def cmd_start(message: Message, state: FSMContext):
     if not is_llm_configured():
         llm_note = "\n\n⚠️ _AI не настроен — агенты работают в демо-режиме._"
 
-    text = (
+       text = (
         f"👋 Привет, *{user_name}*!\n\n"
-        f"Я — бот с *16 AI-агентами* на борту. Каждый специализируется "
+        f"Я — бот с *10 AI-агентами*. Каждый специализируется "
         f"на своей задаче:\n\n"
-        f"🗂️ Продуктивность — напоминания, задачи, подписки\n"
-        f"📡 Информация — погода, календарь, почта\n"
-        f"💚 Здоровье — питание, настроение\n"
-        f"💼 Работа — юрист, аналитик, переводчик, копирайтер\n"
-        f"🏡 Дом — сад и растения\n\n"
+        f"🗂️ Продуктивность — напоминания, дела, план, подписки, уборка\n"
+        f"📡 Информация — погода, дни рождения\n"
+        f"💼 Работа — аналитик, копирайтер\n"
+        f"🏡 Дом — цветы и полив\n\n"
         f"Нажми *«🤖 AI-агенты»* или отправь /agents, чтобы начать."
         f"{llm_note}"
     )
@@ -166,20 +165,19 @@ async def cmd_start(message: Message, state: FSMContext):
 
 @dp.message(Command("help"))
 async def cmd_help(message: Message):
-    text = (
+        text = (
         "📖 *Справка*\n\n"
         "*Основные команды:*\n"
         "• /start — главное меню\n"
         "• /agents — список AI-агентов\n"
         "• /help — эта справка\n"
         "• /exit — выйти из чата с агентом\n"
-        "• /reset — сбросить состояние\n"
-        "• /debug\\_reminders — показать напоминания (для теста)\n\n"
+        "• /reset — сбросить состояние\n\n"
         "*Как работать с агентами:*\n"
         "1. Отправь /agents\n"
         "2. Выбери агента из списка\n"
-        "3. Нажми на готовый вопрос или напиши свой\n"
-        "4. Веди диалог — агент помнит контекст последних 20 сообщений"
+        "3. Нажми на кнопку или напиши свой вопрос\n"
+        "4. Кнопка «🔙 Назад» возвращает к списку агентов"
     )
     await message.answer(text)
 
@@ -223,37 +221,15 @@ async def cmd_status(message: Message):
     await message.answer(text)
 
 
-# ═══════════════════════════════════════════════════════════════
-# CALLBACK: help и agents:menu
-# ═══════════════════════════════════════════════════════════════
-
-@dp.callback_query(F.data == "help")
-async def callback_help(callback: CallbackQuery):
-    await callback.message.answer("📖 Отправь /help, чтобы увидеть полную справку.")
-    await callback.answer()
-
-
-@dp.callback_query(F.data == "back:main")
-async def callback_back_main(callback: CallbackQuery, state: FSMContext):
-    await state.clear()
-    await callback.message.edit_text(
-        "🏠 *Главное меню*\n\nВыбери действие:",
-        reply_markup=get_main_menu(),
-        parse_mode="Markdown",
-    )
-    await callback.answer()
 
 
 # ═══════════════════════════════════════════════════════════════
 # FALLBACK-ХЕНДЛЕР
 # ═══════════════════════════════════════════════════════════════
 
-@dp.message(F.text & ~F.text.startswith("/"))
+@dp.message(StateFilter(None), F.text & ~F.text.startswith("/"))
 async def handle_unknown(message: Message, state: FSMContext):
-    current_state = await state.get_state()
-    if current_state is not None:
-        return
-
+    """Fallback: только когда нет активного состояния."""
     await message.answer(
         "🤔 Не понял команду.\n\n"
         "Отправь /agents, чтобы выбрать AI-агента, "
