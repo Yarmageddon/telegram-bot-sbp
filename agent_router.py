@@ -45,7 +45,7 @@ else:
 
 LLM_API_URL = os.getenv("LLM_API_URL", _DEFAULT_URL)
 LLM_MODEL = os.getenv("LLM_MODEL", "llama-3.3-70b-versatile")
-
+REQUEST_TIMEOUT = float(os.getenv("LLM_TIMEOUT", "60"))
 # Флаг: отправлять ли tool_choice: "auto".
 # Некоторые модели (Gemini, Qwen, DeepSeek) падают с 400, если он указан.
 # По умолчанию — НЕ отправляем.
