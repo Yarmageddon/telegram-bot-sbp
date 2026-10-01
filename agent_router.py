@@ -98,21 +98,8 @@ def _headers() -> dict:
 # Автокоррекция префикса модели под провайдера
 model = LLM_MODEL
 
-if GROQ_API_KEY:
-    # Groq не принимает префикс "openai/" — убираем его, если есть
-    if model.startswith("openai/"):
-        model = model.split("/", 1)[1]
-        logger.info(f"[ROUTER] Groq: убран префикс openai/ → {model}")
-elif OPENROUTER_API_KEY:
-    # OpenRouter требует префикс провайдера
-    if "/" not in model:
-        model = f"openai/{model}"
-        logger.info(f"[ROUTER] OpenRouter: добавлен префикс → {model}")
-elif OPENAI_API_KEY:
-    # OpenAI не понимает префикс "openai/"
-    if model.startswith("openai/"):
-        model = model.split("/", 1)[1]
-        logger.info(f"[ROUTER] OpenAI: убран префикс openai/ → {model}")
+model = LLM_MODEL
+logger.info(f"[ROUTER] Использую модель: {model}")
     
 async def _call_llm(
     messages: list[dict],
@@ -121,7 +108,7 @@ async def _call_llm(
 ) -> dict:
     """Низкоуровневый вызов LLM API."""
     payload: dict = {
-        "model": model,               # ← переменная из автокоррекции
+        "model": model,              
         "messages": messages,
         "temperature": temperature,
     }
