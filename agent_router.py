@@ -33,15 +33,18 @@ logger = logging.getLogger(__name__)
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "").strip()
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "").strip()
+GROQ_API_KEY = os.getenv("GROQ_API_KEY", "").strip()
 
-LLM_API_URL = os.getenv(
-    "LLM_API_URL",
-    "https://openrouter.ai/api/v1/chat/completions" if OPENROUTER_API_KEY
-    else "https://api.openai.com/v1/chat/completions",
-)
-LLM_MODEL = os.getenv("LLM_MODEL", "openai/gpt-4o-mini")
-MAX_TOOL_ITERATIONS = int(os.getenv("MAX_TOOL_ITERATIONS", "5"))
-REQUEST_TIMEOUT = float(os.getenv("LLM_TIMEOUT", "60"))
+# Определяем провайдера по приоритету
+if GROQ_API_KEY:
+    _DEFAULT_URL = "https://api.groq.com/openai/v1/chat/completions"
+elif OPENROUTER_API_KEY:
+    _DEFAULT_URL = "https://openrouter.ai/api/v1/chat/completions"
+else:
+    _DEFAULT_URL = "https://api.openai.com/v1/chat/completions"
+
+LLM_API_URL = os.getenv("LLM_API_URL", _DEFAULT_URL)
+LLM_MODEL = os.getenv("LLM_MODEL", "llama-3.3-70b-versatile")
 
 # Флаг: отправлять ли tool_choice: "auto".
 # Некоторые модели (Gemini, Qwen, DeepSeek) падают с 400, если он указан.
@@ -73,7 +76,9 @@ def get_llm_info() -> dict:
 
 def _headers() -> dict:
     h = {"Content-Type": "application/json"}
-    if OPENROUTER_API_KEY:
+    if GROQ_API_KEY:
+        h["Authorization"] = f"Bearer {GROQ_API_KEY}"
+    elif OPENROUTER_API_KEY:
         h["Authorization"] = f"Bearer {OPENROUTER_API_KEY}"
         h["HTTP-Referer"] = "https://github.com/Yarmageddon/telegram-bot-sbp"
         h["X-Title"] = "Telegram SBP Agents"
