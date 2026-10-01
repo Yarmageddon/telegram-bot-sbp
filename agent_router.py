@@ -46,7 +46,7 @@ else:
 LLM_API_URL = os.getenv("LLM_API_URL", _DEFAULT_URL)
 LLM_MODEL = os.getenv("LLM_MODEL", "llama-3.3-70b-versatile")
 REQUEST_TIMEOUT = float(os.getenv("LLM_TIMEOUT", "60"))
-MAX_TOOL_ITERATIONS = int(os.getenv("MAX_TOOL_ITERATIONS", "5"))
+MAX_TOOL_ITERATIONS = int(os.getenv("MAX_TOOL_ITERATIONS", "50"))
 SEND_TOOL_CHOICE = os.getenv("SEND_TOOL_CHOICE", "false").lower() in ("1", "true", "yes")
 
 # Флаг: отправлять ли tool_choice: "auto".
@@ -204,17 +204,36 @@ async def _run_loop(messages: list[dict], agent: AgentConfig,
                 "content": json.dumps(result, ensure_ascii=False, default=str),
             })
 
-    # Превысили лимит итераций — финальный вызов без tools
-    logger.warning(f"[ROUTER] Лимит итераций ({MAX_TOOL_ITERATIONS}) исчерпан")
-    try:
-        final = await _call_llm(messages, agent.temperature, tools=None)
-        return (
-            final["choices"][0]["message"].get("content")
-            or "⚠️ Слишком много шагов."
-        )
-    except Exception as e:
-        logger.error(f"[ROUTER] Финальный вызов упал: {e}")
-        return "⚠️ Не удалось завершить задачу."
+    # Превысили лимит итераций.
+# ВАЖНО: не делаем вызов без tools — Groq это блокирует
+# (модель всё равно пытается вызвать инструмент → 400 tool_use_failed).
+# Вместо этого просим модель подвести итог, оставив tools доступными.
+logger.warning(f"[ROUTER] Лимит итераций ({MAX_TOOL_ITERATIONS}) исчерпан")
+
+messages.append({
+    "role": "user",
+    "content": (
+        "Ты выполнил много действий. Подведи итог того, что уже сделано, "
+        "и ответь пользователю кратко. БОЛЬШЕ НЕ ВЫЗЫВАЙ инструменты."
+    ),
+})
+
+try:
+    final = await _call_llm(
+        messages,
+        agent.temperature,
+        tools=tools,  # ← tools остаются, но модель проинструктирована не звать
+    )
+    content = final["choices"][0]["message"].get("content")
+    if content:
+        return content
+    return "⚠️ Не удалось получить финальный ответ."
+except Exception as e:
+    logger.error(f"[ROUTER] Финальный вызов упал: {e}")
+    return (
+        "⚠️ Много шагов за раз. Попробуй разбить задачу на части "
+        "или сформулировать её иначе."
+    )
 
 
 # ═══════════════════════════════════════════════════════════════
