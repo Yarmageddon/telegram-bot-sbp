@@ -106,14 +106,14 @@ async def cmd_start(message: Message, state: FSMContext):
         llm_note = "\n\nAI не настроен — агенты в демо-режиме."
 
     text = (
-        f"Привет, {user_name}!\n\n"
-        f"Я бот с 10 AI-агентами:\n\n"
-        f"Продуктивность: напоминания, дела, план, подписки, уборка\n"
-        f"Информация: погода, дни рождения\n"
-        f"Работа: аналитик, копирайтер\n"
-        f"Дом: цветы и полив\n\n"
-        f"Нажми AI-агенты или отправь /agents."
-        f"{llm_note}"
+        "Привет, " + user_name + "!\n\n"
+        "Я бот с 10 AI-агентами:\n\n"
+        "Продуктивность: напоминания, дела, план, подписки, уборка\n"
+        "Информация: погода, дни рождения\n"
+        "Работа: аналитик, копирайтер\n"
+        "Дом: цветы и полив\n\n"
+        "Нажми AI-агенты или отправь /agents."
+        + llm_note
     )
     await message.answer(text, reply_markup=get_main_menu())
 
@@ -123,11 +123,11 @@ async def cmd_help(message: Message):
     text = (
         "Справка\n\n"
         "Команды:\n"
-        "/start — главное меню\n"
-        "/agents — список агентов\n"
-        "/help — справка\n"
-        "/exit — выйти из чата\n"
-        "/reset — сбросить состояние\n\n"
+        "/start - главное меню\n"
+        "/agents - список агентов\n"
+        "/help - справка\n"
+        "/exit - выйти из чата\n"
+        "/reset - сбросить состояние\n\n"
         "Как работать:\n"
         "1. Отправь /agents\n"
         "2. Выбери агента\n"
@@ -148,19 +148,23 @@ async def cmd_status(message: Message):
     info = get_llm_info()
     hc = await healthcheck()
 
-    text = f"Статус системы\n\nLLM:\nПровайдер: {info['provider']}\nМодель: {info['model']}\nСтатус: {hc['status']}\n"
+    text = "Статус\n\nLLM:\n"
+    text += "Провайдер: " + str(info['provider']) + "\n"
+    text += "Модель: " + str(info['model']) + "\n"
+    text += "Статус: " + str(hc['status']) + "\n"
 
     if hc["status"] == "ok":
-        text += f"Ответ: {hc.get('response_preview', '')[:40]}\n"
+        text += "Ответ: " + str(hc.get('response_preview', ''))[:40] + "\n"
     elif hc["status"] == "error":
-        text += f"Ошибка: {hc.get('error', 'unknown')[:80]}\n"
+        text += "Ошибка: " + str(hc.get('error', 'unknown'))[:80] + "\n"
     elif hc["status"] == "disabled":
         text += "Ключ не настроен\n"
 
     from agents import AGENTS
     total_agents = len(AGENTS)
     total_tools = sum(len(a.tools) for a in AGENTS.values())
-    text += f"\nАгенты: {total_agents}\nИнструментов: {total_tools}\n"
+    text += "\nАгенты: " + str(total_agents) + "\n"
+    text += "Инструментов: " + str(total_tools) + "\n"
 
     await message.answer(text)
 
@@ -178,8 +182,8 @@ dp.include_router(agents_router)
 
 async def _set_bot_commands():
     commands = [
-        BotCommand(command="start", description="Запустить бота"),
-        BotCommand(command="agents", description="AI-агенты"),
+        BotCommand(command="start", description="Запустить"),
+        BotCommand(command="agents", description="Агенты"),
         BotCommand(command="help", description="Помощь"),
         BotCommand(command="status", description="Статус"),
         BotCommand(command="exit", description="Выйти"),
@@ -187,9 +191,9 @@ async def _set_bot_commands():
     ]
     try:
         await bot.set_my_commands(commands)
-        logger.info(f"Commands set: {len(commands)}")
+        logger.info("Commands set: " + str(len(commands)))
     except Exception as e:
-        logger.warning(f"Commands error: {e}")
+        logger.warning("Commands error: " + str(e))
 
 
 async def main():
@@ -203,13 +207,11 @@ async def main():
         await init_db()
         logger.info("DB initialized")
     except Exception as e:
-        logger.error(f"DB error: {e}")
+        logger.error("DB error: " + str(e))
 
     info = get_llm_info()
-    logger.info(
-        f"LLM: provider={info['provider']}, model={info['model']}, "
-        f"configured={'yes' if info['configured'] else 'no'}"
-    )
+    configured = "yes" if info["configured"] else "no"
+    logger.info("LLM provider=" + str(info['provider']) + " model=" + str(info['model']) + " configured=" + configured)
 
     if info["configured"]:
         try:
@@ -217,23 +219,23 @@ async def main():
             if hc["status"] == "ok":
                 logger.info("LLM OK")
             else:
-                logger.warning(f"LLM: {hc.get('error', hc['status'])}")
+                logger.warning("LLM: " + str(hc.get('error', hc['status'])))
         except Exception as e:
-            logger.warning(f"Healthcheck failed: {e}")
+            logger.warning("Healthcheck failed: " + str(e))
     else:
-        logger.warning("LLM key not set — demo mode")
+        logger.warning("LLM key not set")
 
     await _set_bot_commands()
 
     try:
         await bot.delete_webhook(drop_pending_updates=True)
     except Exception as e:
-        logger.debug(f"delete_webhook: {e}")
+        logger.debug("delete_webhook: " + str(e))
 
     scheduler_task = asyncio.create_task(reminder_worker(bot))
     logger.info("Scheduler started")
 
-    logger.info("Bot started\n")
+    logger.info("Bot started")
 
     try:
         await dp.start_polling(
@@ -252,7 +254,7 @@ def run():
     except (KeyboardInterrupt, SystemExit):
         logger.info("Stopped")
     except Exception as e:
-        logger.exception(f"Critical: {e}")
+        logger.exception("Critical: " + str(e))
         sys.exit(1)
 
 
